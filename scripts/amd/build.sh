@@ -1,0 +1,1 @@
+BUILD_SOX=1 python setup.py install
