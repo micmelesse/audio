@@ -4,16 +4,17 @@ alias drun_nodevice='sudo docker run -it --rm --network=host --ipc=host --shm-si
 VOLUMES="-v $HOME/dockerx:/dockerx -v /data:/data"
 
 # WORK_DIR='-w /var/lib/jenkins/audio'
-WORK_DIR='-w /dockerx/audio'
-# WORK_DIR='-w /root/audio'
+# WORK_DIR='-w /dockerx/audio'
+WORK_DIR='-w /root/audio'
 
 # IMAGE_NAME=rocm/pytorch
 # IMAGE_NAME=rocm/pytorch:rocm4.0_ubuntu18.04_py3.6_pytorch
-IMAGE_NAME=rocm/pytorch:rocm4.0.1_ubuntu18.04_py3.6_pytorch
+# IMAGE_NAME=rocm/pytorch:rocm4.0.1_ubuntu18.04_py3.6_pytorch
+IMAGE_NAME=audio_amd
 
 CONTAINER_ID=$(drun -d $WORK_DIR $VOLUMES $IMAGE_NAME)
 echo "CONTAINER_ID: $CONTAINER_ID"
-# docker cp . $CONTAINER_ID:/root/audio
+docker cp . $CONTAINER_ID:/root/audio
 docker attach $CONTAINER_ID
 docker stop $CONTAINER_ID
 docker rm $CONTAINER_ID

@@ -2,7 +2,8 @@
 # set -o xtrace
 
 # set path
-DOCKERFILE_PATH=scripts/amd/audio.Dockerfile
+DOCKERFILE_PATH=scripts/amd/audio_amd.Dockerfile
+# DOCKERFILE_PATH=scripts/amd/audio_nv.Dockerfile
 
 # get tag
 DOCKERFILE_NAME=$(basename $DOCKERFILE_PATH)
