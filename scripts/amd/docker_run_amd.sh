@@ -3,7 +3,6 @@ alias drun_nodevice='sudo docker run -it --rm --network=host --ipc=host --shm-si
 
 VOLUMES="-v $HOME/dockerx:/dockerx -v /data:/data"
 
-# WORK_DIR='-w /var/lib/jenkins/audio'
 # WORK_DIR='-w /dockerx/audio'
 WORK_DIR='-w /root/audio'
 
