@@ -20,7 +20,7 @@ project(torchaudio)
 
 # Find the HIP package, set the HIP paths, load the HIP CMake.
 if(USE_ROCM)
-  include(LoadHIP.cmake)
+  include(cmake/LoadHIP.cmake)
   if(NOT PYTORCH_FOUND_HIP)
     set(USE_ROCM OFF)
   endif()
