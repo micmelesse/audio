@@ -1,1 +1,1 @@
-BUILD_SOX=1 python setup.py install
+USE_ROCM=1 BUILD_SOX=1 python setup.py install
