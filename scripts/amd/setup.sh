@@ -1,1 +1,1 @@
-pip3 install ninja
+pip3 install ninja typing pytest scipy numpy parameterized
