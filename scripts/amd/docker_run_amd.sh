@@ -13,7 +13,7 @@ IMAGE_NAME=audio_amd
 
 CONTAINER_ID=$(drun --user root -d $WORK_DIR $VOLUMES $IMAGE_NAME)
 echo "CONTAINER_ID: $CONTAINER_ID"
-# docker cp . $CONTAINER_ID:/root/audio
+docker cp . $CONTAINER_ID:/root/audio
 docker attach $CONTAINER_ID
 docker stop $CONTAINER_ID
 docker rm $CONTAINER_ID

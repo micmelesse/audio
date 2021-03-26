@@ -1,6 +1,7 @@
 # set path to tests
-export PATH="${PATH}:/dockerx/audio/third_party/kaldi/submodule/src/featbin/"
-export PATH="${PATH}:/dockerx/audio/third_party/install/bin"
+PWD=$(pwd)
+export PATH="${PATH}:${PWD}/third_party/kaldi/submodule/src/featbin/"
+export PATH="${PATH}:${PWD}/third_party/install/bin"
 
 # # List up all the tests
 # pytest test --collect-only
