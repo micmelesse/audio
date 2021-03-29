@@ -2,6 +2,9 @@
 PWD=$(pwd)
 export PATH="${PATH}:${PWD}/third_party/kaldi/submodule/src/featbin/"
 export PATH="${PATH}:${PWD}/third_party/install/bin"
+export KALDI_ROOT=$PWD
+
+export PYTORCH_AUDIO_TEST_WITH_ROCM=1
 
 # # List up all the tests
 # pytest test --collect-only
