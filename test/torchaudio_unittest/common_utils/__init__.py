@@ -18,6 +18,7 @@ from .case_utils import (
     skipIfNoKaldi,
     skipIfNoSox,
     skipIfNoSoxBackend,
+    skipCUDAIfRocm,
 )
 from .wav_utils import (
     get_wav_data,
@@ -33,5 +34,5 @@ from .parameterized_utils import (
 __all__ = ['get_asset_path', 'get_whitenoise', 'get_sinusoid', 'set_audio_backend',
            'TempDirMixin', 'HttpServerMixin', 'TestBaseMixin', 'PytorchTestCase', 'TorchaudioTestCase',
            'skipIfNoCuda', 'skipIfNoExec', 'skipIfNoModule', 'skipIfNoKaldi', 'skipIfNoSox',
-           'skipIfNoSoxBackend', 'get_wav_data', 'normalize_wav', 'load_wav', 'save_wav', 'load_params',
+           'skipIfNoSoxBackend','skipCUDAIfRocm', 'get_wav_data', 'normalize_wav', 'load_wav', 'save_wav', 'load_params',
            'nested_params']
