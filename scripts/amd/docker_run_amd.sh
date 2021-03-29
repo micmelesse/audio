@@ -3,8 +3,8 @@ alias drun_nodevice='sudo docker run -it --rm --network=host --ipc=host --shm-si
 
 VOLUMES="-v $HOME/dockerx:/dockerx -v /data:/data"
 
-# WORK_DIR='-w /dockerx/audio'
-WORK_DIR='-w /root/audio'
+WORK_DIR='-w /dockerx/audio'
+# WORK_DIR='-w /root/audio'
 
 # IMAGE_NAME=rocm/pytorch
 # IMAGE_NAME=rocm/pytorch:rocm4.0_ubuntu18.04_py3.6_pytorch
