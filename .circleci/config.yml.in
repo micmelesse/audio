@@ -141,6 +141,23 @@ jobs:
           paths:
             - "*"
 
+  binary_rocm_linux_wheel:
+    <<: *binary_common
+    docker:
+      - image: "pytorch/manylinux-rocm:4.0.1"
+    resource_class: 2xlarge+
+    steps:
+      - checkout
+      - attach_workspace:
+          at: third_party
+      - run: packaging/build_wheel.sh
+      - store_artifacts:
+          path: dist
+      - persist_to_workspace:
+          root: dist
+          paths:
+            - "*"
+
   binary_linux_conda:
     <<: *binary_common
     docker:

@@ -28,17 +28,17 @@ DOC_VERSION = ('linux', '3.8')
 def build_workflows(prefix='', upload=False, filter_branch=None, indentation=6):
     w = []
     w += build_download_job(filter_branch)
-    for btype in ["wheel", "conda"]:
-        for os_type in ["linux", "macos", "windows"]:
-            for python_version in PYTHON_VERSIONS:
-                w += build_workflow_pair(btype, os_type, python_version, filter_branch, prefix, upload)
+    for gpu_type in ["cuda", "rocm"]:
+        for btype in ["wheel", "conda"]:
+            for os_type in ["linux", "macos", "windows"]:
+                for python_version in PYTHON_VERSIONS:
+                    w += build_workflow_pair(gpu_type, btype, os_type, python_version, filter_branch, prefix, upload)
 
     if not filter_branch:
         # Build on every pull request, but upload only on nightly and tags
         w += build_doc_job(None)
         w += upload_doc_job('nightly')
         w += docstring_parameters_sync_job(None)
-
 
     return indent(indentation, w)
 
@@ -53,27 +53,33 @@ def build_download_job(filter_branch):
     return [{"download_third_parties_nix": job}]
 
 
-def build_workflow_pair(btype, os_type, python_version, filter_branch, prefix='', upload=False):
+def build_workflow_pair(gpu_type, btype, os_type, python_version, filter_branch, prefix='', upload=False):
 
     w = []
-    base_workflow_name = "{prefix}binary_{os_type}_{btype}_py{python_version}".format(
+    base_workflow_name = "{prefix}binary_{gpu_type}{os_type}_{btype}_py{python_version}".format(
         prefix=prefix,
+        gpu_type="rocm_" if gpu_type == "rocm" else "",
         os_type=os_type,
         btype=btype,
         python_version=python_version,
     )
 
-    w.append(generate_base_workflow(base_workflow_name, python_version, filter_branch, os_type, btype))
+    if gpu_type == "rocm" and os_type not in ["linux"]:
+        pass
+    elif gpu_type == "rocm" and btype not in ["wheel"]:
+        pass
+    else:
+        w.append(generate_base_workflow(base_workflow_name, gpu_type, python_version, filter_branch, os_type, btype))
 
-    if upload:
+        if upload:
 
-        is_py3_linux = os_type in ['linux', "windows"] and not python_version.startswith("2.")
+            is_py3_linux = os_type in ['linux', "windows"] and not python_version.startswith("2.")
 
-        w.append(generate_upload_workflow(base_workflow_name, filter_branch, btype))
+            w.append(generate_upload_workflow(base_workflow_name, filter_branch, btype))
 
-        if filter_branch == 'nightly' and is_py3_linux:
-            pydistro = 'pip' if btype == 'wheel' else 'conda'
-            w.append(generate_smoketest_workflow(pydistro, base_workflow_name, filter_branch, python_version, os_type))
+            if filter_branch == 'nightly' and is_py3_linux:
+                pydistro = 'pip' if btype == 'wheel' else 'conda'
+                w.append(generate_smoketest_workflow(pydistro, base_workflow_name, filter_branch, python_version, os_type))
 
     return w
 
@@ -115,7 +121,7 @@ def docstring_parameters_sync_job(filter_branch):
     return [{"docstring_parameters_sync": job}]
 
 
-def generate_base_workflow(base_workflow_name, python_version, filter_branch, os_type, btype):
+def generate_base_workflow(base_workflow_name, gpu_type, python_version, filter_branch, os_type, btype):
 
     d = {
         "name": base_workflow_name,
@@ -128,7 +134,10 @@ def generate_base_workflow(base_workflow_name, python_version, filter_branch, os
     if filter_branch:
         d["filters"] = gen_filter_branch_tree(filter_branch)
 
-    return {f"binary_{os_type}_{btype}": d}
+    if gpu_type == "rocm":
+        return {f"binary_rocm_{os_type}_{btype}": d}
+    else:
+        return {f"binary_{os_type}_{btype}": d}
 
 
 def gen_filter_branch_tree(*branches):
@@ -185,27 +194,32 @@ def unittest_workflows(indentation=6):
     jobs += build_download_job(None)
     for os_type in ["linux", "windows", "macos"]:
         for device_type in ["cpu", "gpu"]:
-            if os_type == "macos" and device_type == "gpu":
-                continue
+            for gpu_type in ["cuda", "rocm"]:
+                if os_type == "macos" and device_type == "gpu":
+                    continue
 
-            for i, python_version in enumerate(PYTHON_VERSIONS):
-                job = {
-                    "name": f"unittest_{os_type}_{device_type}_py{python_version}",
-                    "python_version": python_version,
-                }
+                for i, python_version in enumerate(PYTHON_VERSIONS):
+                    if gpu_type == "rocm":
+                        continue
 
-                if os_type != "windows":
-                    job['requires'] = ['download_third_parties_nix']
+                    gpu_type_str = "_rocm" if gpu_type == "rocm" else ""
+                    job = {
+                        "name": f"unittest_{os_type}_{device_type}{gpu_type_str}_py{python_version}",
+                        "python_version": python_version,
+                    }
 
-                jobs.append({f"unittest_{os_type}_{device_type}": job})
+                    if os_type != "windows":
+                        job['requires'] = ['download_third_parties_nix']
 
-                if i == 0 and os_type == "linux" and device_type == "cpu":
-                    jobs.append({
-                        "stylecheck": {
-                            "name": f"stylecheck_py{python_version}",
-                            "python_version": python_version,
-                        }
-                    })
+                    jobs.append({f"unittest_{os_type}_{device_type}{gpu_type_str}": job})
+
+                    if i == 0 and os_type == "linux" and device_type == "cpu":
+                        jobs.append({
+                            "stylecheck": {
+                                "name": f"stylecheck_py{python_version}",
+                                "python_version": python_version,
+                            }
+                        })
     return indent(indentation, jobs)
 
 
