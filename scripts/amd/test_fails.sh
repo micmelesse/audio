@@ -1,10 +1,9 @@
 # set path to tests
-PWD=$(pwd)
-export PATH="${PATH}:${PWD}/third_party/kaldi/submodule/src/featbin/"
-export PATH="${PATH}:${PWD}/third_party/install/bin"
-export KALDI_ROOT=$PWD
+export PATH=${PATH}:$(pwd)/third_party/kaldi/submodule/src/featbin/:$(pwd)/third_party/install/bin
+export KALDI_ROOT=$(pwd)
 
-export PYTORCH_AUDIO_TEST_WITH_ROCM=1
+export TORCHAUDIO_TEST_WITH_ROCM=1
+
 # FAILING UNIT TESTS
 pytest -s test/torchaudio_unittest/backend/soundfile/save_test.py::TestFileObject::test_fileobj_flac
 
