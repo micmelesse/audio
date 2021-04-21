@@ -54,7 +54,8 @@ docker exec pytorch-rocm-audio-py36 bash -c "export KALDI_ROOT=$(pwd)"
 docker exec pytorch-rocm-audio-py36 bash -c "export TORCHAUDIO_TEST_WITH_ROCM=1"
 
 # run unit tests
-docker exec pytorch-rocm-audio-py36 bash -c "cd /audio && pytest test -v 2>&1 | tee /data/audio_wheel_all_unit_tests_py36.log"
+# docker exec pytorch-rocm-audio-py36 bash -c "cd /audio && pytest test -v 2>&1 | tee /data/audio_wheel_all_unit_tests_py36.log"
+docker exec pytorch-rocm-audio-py36 bash -c "cd /audio && pytest test/torchaudio_unittest/sox_effect/sox_effect_test.py::TestFileFormats::test_wav_uint8_8000_2 -v 2>&1 | tee /data/audio_wheel_fail_unit_tests_py36.log"
 
 # clean up
 docker exec pytorch-rocm-audio-py36 bash -c "cd /audio && python3 setup.py clean"
