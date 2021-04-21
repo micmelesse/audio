@@ -49,13 +49,13 @@ docker exec pytorch-rocm-audio-py36 bash -c "pip3 install --no-deps /audio/dist/
 docker exec pytorch-rocm-audio-py36 bash -c "pip3 install ninja typing pytest scipy numpy parameterized"
 docker exec pytorch-rocm-audio-py36 bash -c "pip3 install -r requirements.txt"
 docker exec pytorch-rocm-audio-py36 bash -c "pip3 install scipy -U"
-docker exec pytorch-rocm-audio-py36 bash -c 'export PATH=${PATH}:$(pwd)/third_party/kaldi/submodule/src/featbin/:$(pwd)/third_party/install/bin'
-docker exec pytorch-rocm-audio-py36 bash -c "export KALDI_ROOT=$(pwd)"
-docker exec pytorch-rocm-audio-py36 bash -c "export TORCHAUDIO_TEST_WITH_ROCM=1"
 
 # run unit tests
-# docker exec pytorch-rocm-audio-py36 bash -c "cd /audio && pytest test -v 2>&1 | tee /data/audio_wheel_all_unit_tests_py36.log"
-docker exec pytorch-rocm-audio-py36 bash -c "cd /audio && pytest test/torchaudio_unittest/sox_effect/sox_effect_test.py::TestFileFormats::test_wav_uint8_8000_2 -v 2>&1 | tee /data/audio_wheel_fail_unit_tests_py36.log"
+docker exec pytorch-rocm-audio-py36 bash -c 'export PATH=${PATH}:/audio/third_party/kaldi/submodule/src/featbin/:/audio/third_party/install/bin && \
+    export KALDI_ROOT=/audio && \
+    export TORCHAUDIO_TEST_WITH_ROCM=1 && \
+    cd /audio && pytest test \
+    -v 2>&1 | tee /data/audio_wheel_fail_unit_tests_py36.log'
 
 # clean up
 docker exec pytorch-rocm-audio-py36 bash -c "cd /audio && python3 setup.py clean"
