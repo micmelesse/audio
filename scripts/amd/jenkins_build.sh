@@ -1,5 +1,6 @@
-set +e
 #!/bin/bash -x
+
+set +e
 
 # ROCm Version
 ROCM_VERSION=4.0.1
@@ -63,7 +64,7 @@ for PY_VER in "${PYTHON_VERSION[@]}"; do
         export KALDI_ROOT=/audio && \
         export TORCHAUDIO_TEST_WITH_ROCM=1 && \
         cd /audio && pytest test \
-        -v 2>&1 | tee /data/audio_wheel_fail_unit_tests_py${PY_VER//./}.log"
+        -v 2>&1 | tee /data/audio_wheel_all_unit_tests_py${PY_VER//./}.log"
 
     # clean up
     docker exec $DOCKER_CONTAINER bash -c "cd /audio && python3 setup.py clean && \
