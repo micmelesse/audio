@@ -7,60 +7,70 @@ ROCM_VERSION=4.0.1
 # command to fetch submodules
 git submodule update --init --recursive
 
-mkdir data
-cd data
-mkdir wheel_py3_6
-mkdir wheel_py3_7
-mkdir wheel_py3_8
-cd ..
+# PYTHON_VERSION=(3.6)
+PYTHON_VERSION=(3.6 3.7 3.8)
 
-# mkdir pytorch_source
-# cd pytorch_source
-# git clone --recursive https://github.com/pytorch/pytorch.git pytorch
-# cd pytorch/.circleci/docker
-# ./build.sh ubuntu18.04-rocm${ROCM_VERSION}-py3.7 -t rocm/pytorch:rocm${ROCM_VERSION}_ubuntu18.04_py3.7_pytorch
-# ./build.sh ubuntu18.04-rocm${ROCM_VERSION}-py3.8 -t rocm/pytorch:rocm${ROCM_VERSION}_ubuntu18.04_py3.8_pytorch
-# cd ../../../../
-# rm -rf pytorch_source
+for PY_VER in "${PYTHON_VERSION[@]}"; do
 
-# For python3.6 wheel
-docker_image=rocm/pytorch:rocm${ROCM_VERSION}_ubuntu18.04_py3.6_pytorch
-docker run -it --detach --privileged --network=host --device=/dev/kfd --device=/dev/dri --ipc="host" --pid="host" --shm-size 32G --group-add video --cap-add=SYS_PTRACE --security-opt seccomp=unconfined -v $(pwd):/audio -v $(pwd)/data:/data --name pytorch-rocm-audio-py36 --user root $docker_image
+    # make wheel dir
+    mkdir -p data
+    cd data
+    WHEEL_DIR=wheel_py${PY_VER//./_}
+    mkdir -p $WHEEL_DIR
+    cd ..
 
-# uninstall previous versions
-docker exec pytorch-rocm-audio-py36 bash -c "pip3 uninstall -y torch"
-docker exec pytorch-rocm-audio-py36 bash -c "pip3 uninstall -y torchaudio"
-docker exec pytorch-rocm-audio-py36 bash -c "pip3 install ninja"
-docker exec pytorch-rocm-audio-py36 bash -c "pip3 install --pre torch -f https://download.pytorch.org/whl/nightly/rocm4.0.1/torch_nightly.html"
+    # build pytorch docker
+    if [ "${PY_VER}" != "3.6" ]; then
+        mkdir -p pytorch_source
+        cd pytorch_source
+        git clone --recursive https://github.com/pytorch/pytorch.git pytorch
+        cd pytorch/.circleci/docker
+        ./build.sh ubuntu18.04-rocm${ROCM_VERSION}-py${PY_VER} -t rocm/pytorch:rocm${ROCM_VERSION}_ubuntu18.04_py${PY_VER}_pytorch
+        cd ../../../../
+    fi
 
-# build wheel
-docker exec pytorch-rocm-audio-py36 bash -c "sed -i 's/name=\"torchaudio\"/name=\"torchaudio_rocm\"/g' /audio/setup.py"
-docker exec pytorch-rocm-audio-py36 bash -c "sed -i 's/pytorch_package_dep = \x27torch\x27/pytorch_package_dep = \x27torch-rocm\x27/g' /audio/setup.py"
-docker exec pytorch-rocm-audio-py36 bash -c "cd /audio && python3 setup.py clean"
-docker exec pytorch-rocm-audio-py36 bash -c "pip3 install wheel"
-docker exec pytorch-rocm-audio-py36 bash -c "cd /audio && USE_ROCM=1 BUILD_SOX=1 python setup.py bdist_wheel"
+    # get pytorch docker
+    DOCKER_IMAGE=rocm/pytorch:rocm${ROCM_VERSION}_ubuntu18.04_py${PY_VER}_pytorch
+    DOCKER_CONTAINER=pytorch-rocm-audio-py${PY_VER//./}
+    docker run -it --detach --privileged --network=host --device=/dev/kfd --device=/dev/dri --ipc="host" --pid="host" --shm-size 32G --group-add video --cap-add=SYS_PTRACE --security-opt seccomp=unconfined \
+        -v $(pwd):/audio -v $(pwd)/data:/data --name $DOCKER_CONTAINER --user root $DOCKER_IMAGE
 
-# install wheel
-docker exec pytorch-rocm-audio-py36 bash -c "ls /audio/dist/"
-docker exec pytorch-rocm-audio-py36 bash -c "cp /audio/dist/torch*.whl /data/wheel_py3_6/."
-docker exec pytorch-rocm-audio-py36 bash -c "pip3 install --no-deps /audio/dist/torch*.whl"
+    # uninstall previous versions
+    docker exec $DOCKER_CONTAINER bash -c "pip3 uninstall -y torch && \
+        pip3 uninstall -y torchaudio && \
+        pip3 install ninja && \
+        pip3 install --pre torch -f https://download.pytorch.org/whl/nightly/rocm${ROCM_VERSION}/torch_nightly.html"
 
-# prep for tests
-docker exec pytorch-rocm-audio-py36 bash -c "pip3 install ninja typing pytest scipy numpy parameterized"
-docker exec pytorch-rocm-audio-py36 bash -c "pip3 install -r requirements.txt"
-docker exec pytorch-rocm-audio-py36 bash -c "pip3 install scipy -U"
+    # build wheel
+    docker exec $DOCKER_CONTAINER bash -c "sed -i 's/name=\"torchaudio\"/name=\"torchaudio_rocm\"/g' /audio/setup.py && \
+        sed -i 's/pytorch_package_dep = \x27torch\x27/pytorch_package_dep = \x27torch-rocm\x27/g' /audio/setup.py && \
+        cd /audio && python3 setup.py clean && \
+        pip3 install wheel && \
+        cd /audio && USE_ROCM=1 BUILD_SOX=1 python setup.py bdist_wheel"
 
-# run unit tests
-docker exec pytorch-rocm-audio-py36 bash -c 'export PATH=${PATH}:/audio/third_party/kaldi/submodule/src/featbin/:/audio/third_party/install/bin && \
-    export KALDI_ROOT=/audio && \
-    export TORCHAUDIO_TEST_WITH_ROCM=1 && \
-    cd /audio && pytest test \
-    -v 2>&1 | tee /data/audio_wheel_fail_unit_tests_py36.log'
+    # install wheel
+    docker exec $DOCKER_CONTAINER bash -c "ls /audio/dist/ && \
+        cp /audio/dist/torch*.whl /data/$WHEEL_DIR/. && \
+        pip3 install --no-deps /audio/dist/torch*.whl"
 
-# clean up
-docker exec pytorch-rocm-audio-py36 bash -c "cd /audio && python3 setup.py clean"
-docker exec pytorch-rocm-audio-py36 bash -c "cd /audio && rm -rf build/ && rm -rf dist/"
-docker stop pytorch-rocm-audio-py36
+    # prep for tests
+    docker exec $DOCKER_CONTAINER bash -c "pip3 install ninja typing pytest scipy numpy parameterized && \
+        pip3 install -r requirements.txt && \
+        pip3 install scipy -U"
+
+    # run unit tests
+    docker exec $DOCKER_CONTAINER bash -c "export PATH=\${PATH}:/audio/third_party/kaldi/submodule/src/featbin/:/audio/third_party/install/bin && \
+        export KALDI_ROOT=/audio && \
+        export TORCHAUDIO_TEST_WITH_ROCM=1 && \
+        cd /audio && pytest test \
+        -v 2>&1 | tee /data/audio_wheel_fail_unit_tests_py${PY_VER//./}.log"
+
+    # clean up
+    docker exec $DOCKER_CONTAINER bash -c "cd /audio && python3 setup.py clean && \
+        cd /audio && rm -rf build/ && rm -rf dist/"
+    docker stop $DOCKER_CONTAINER
+
+done
 
 # ## For python3.7 wheel
 # docker_image_py37=rocm/pytorch:rocm${ROCM_VERSION}_ubuntu18.04_py3.7_pytorch
