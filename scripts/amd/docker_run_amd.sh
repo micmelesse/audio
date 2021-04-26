@@ -10,6 +10,7 @@ WORK_DIR='/root/audio'
 # IMAGE_NAME=rocm/pytorch:rocm4.0_ubuntu18.04_py3.6_pytorch
 # IMAGE_NAME=rocm/pytorch:rocm4.0.1_ubuntu18.04_py3.6_pytorch
 IMAGE_NAME=audio_amd
+# IMAGE_NAME=rocm/pytorch:rocm4.0.1_ubuntu18.04_py3.7_pytorch
 
 CONTAINER_ID=$(drun --user root -d -w $WORK_DIR $VOLUMES $IMAGE_NAME)
 echo "CONTAINER_ID: $CONTAINER_ID"

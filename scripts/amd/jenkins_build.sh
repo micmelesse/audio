@@ -8,15 +8,19 @@ ROCM_VERSION=4.0.1
 # command to fetch submodules
 git submodule update --init --recursive
 
-# PYTHON_VERSION=(3.6)
+# PYTHON_VERSION=(3.7)
 PYTHON_VERSION=(3.6 3.7 3.8)
 
 for PY_VER in "${PYTHON_VERSION[@]}"; do
 
+    # set VARIABLES
+    WHEEL_DIR=wheel_py${PY_VER//./_}
+    DOCKER_IMAGE=rocm/pytorch:rocm${ROCM_VERSION}_ubuntu18.04_py${PY_VER}_pytorch
+    DOCKER_CONTAINER=pytorch-rocm-audio-py${PY_VER//./}
+    
     # make wheel dir
     mkdir -p data
     cd data
-    WHEEL_DIR=wheel_py${PY_VER//./_}
     mkdir -p $WHEEL_DIR
     cd ..
 
@@ -26,13 +30,11 @@ for PY_VER in "${PYTHON_VERSION[@]}"; do
         cd pytorch_source
         git clone --recursive https://github.com/pytorch/pytorch.git pytorch
         cd pytorch/.circleci/docker
-        ./build.sh ubuntu18.04-rocm${ROCM_VERSION}-py${PY_VER} -t rocm/pytorch:rocm${ROCM_VERSION}_ubuntu18.04_py${PY_VER}_pytorch
+        ./build.sh ubuntu18.04-rocm${ROCM_VERSION}-py${PY_VER} -t $DOCKER_IMAGE
         cd ../../../../
     fi
 
     # get pytorch docker
-    DOCKER_IMAGE=rocm/pytorch:rocm${ROCM_VERSION}_ubuntu18.04_py${PY_VER}_pytorch
-    DOCKER_CONTAINER=pytorch-rocm-audio-py${PY_VER//./}
     docker run -it --detach --privileged --network=host --device=/dev/kfd --device=/dev/dri --ipc="host" --pid="host" --shm-size 32G --group-add video --cap-add=SYS_PTRACE --security-opt seccomp=unconfined \
         -v $(pwd):/audio -v $(pwd)/data:/data --name $DOCKER_CONTAINER --user root $DOCKER_IMAGE
 
@@ -47,7 +49,7 @@ for PY_VER in "${PYTHON_VERSION[@]}"; do
         sed -i 's/pytorch_package_dep = \x27torch\x27/pytorch_package_dep = \x27torch-rocm\x27/g' /audio/setup.py && \
         cd /audio && python3 setup.py clean && \
         pip3 install wheel && \
-        cd /audio && USE_ROCM=1 BUILD_SOX=1 python setup.py bdist_wheel"
+        cd /audio && USE_ROCM=1 BUILD_TRANSDUCER=1 BUILD_SOX=1 python setup.py bdist_wheel"
 
     # install wheel
     docker exec $DOCKER_CONTAINER bash -c "ls /audio/dist/ && \
