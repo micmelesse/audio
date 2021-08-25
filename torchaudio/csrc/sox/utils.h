@@ -24,6 +24,8 @@ void set_use_threads(const bool use_threads);
 
 void set_buffer_size(const int64_t buffer_size);
 
+int64_t get_buffer_size();
+
 std::vector<std::vector<std::string>> list_effects();
 
 std::vector<std::string> list_read_formats();
@@ -56,7 +58,10 @@ struct SoxFormat {
 
 ///
 /// Verify that input file is found, has known encoding, and not empty
-void validate_input_file(const SoxFormat& sf);
+void validate_input_file(const SoxFormat& sf, const std::string& path);
+
+/// Verify that input memory buffer has known encoding, and not empty
+void validate_input_memfile(const SoxFormat& sf);
 
 ///
 /// Verify that input Tensor is 2D, CPU and either uin8, int16, int32 or float32

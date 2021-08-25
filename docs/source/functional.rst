@@ -26,6 +26,11 @@ create_fb_matrix
 
 .. autofunction:: create_fb_matrix
 
+linear_fbanks
+-------------
+
+.. autofunction:: linear_fbanks
+
 create_dct
 ----------
 
@@ -55,6 +60,11 @@ apply_codec
 -----------
 
 .. autofunction:: apply_codec
+
+resample
+--------
+
+.. autofunction:: resample
 
 :hidden:`Complex Utility`
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -206,6 +216,11 @@ vad
 
 .. autofunction:: phase_vocoder
 
+:hidden:`pitch_shift`
+-----------------------
+
+.. autofunction:: pitch_shift
+
 :hidden:`compute_deltas`
 ------------------------
 
@@ -231,7 +246,7 @@ vad
 
 .. autofunction:: spectral_centroid
 
-:hidden:`resample`
----------------------------
+References
+~~~~~~~~~~
 
-.. autofunction:: resample
+.. footbibliography::

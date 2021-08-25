@@ -7,9 +7,8 @@ __all__ = [
 
 
 class Wav2Letter(nn.Module):
-    r"""Wav2Letter model architecture from the `Wav2Letter an End-to-End ConvNet-based Speech Recognition System`_.
-
-    .. _Wav2Letter an End-to-End ConvNet-based Speech Recognition System: https://arxiv.org/abs/1609.03193
+    r"""Wav2Letter model architecture from *Wav2Letter: an End-to-End ConvNet-based Speech
+    Recognition System* [:footcite:`collobert2016wav2letter`].
 
      :math:`\text{padding} = \frac{\text{ceil}(\text{kernel} - \text{stride})}{2}`
 

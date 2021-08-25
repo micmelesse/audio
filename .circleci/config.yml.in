@@ -16,7 +16,7 @@ executors:
   windows-gpu:
     machine:
       resource_class: windows.gpu.nvidia.medium
-      image: windows-server-2019-nvidia:stable
+      image: windows-server-2019-nvidia:previous
       shell: bash.exe
 
 commands:
@@ -42,7 +42,7 @@ commands:
     description: "installs tools required to build torchaudio"
     steps:
       - run:
-          name: Install pkg-config
+          name: Install build tools
           command: HOMEBREW_NO_AUTO_UPDATE=1 brew install pkg-config wget
           # Disable brew auto update which is very slow
   load_conda_channel_flags:
@@ -52,9 +52,7 @@ commands:
           name: Adding CONDA_CHANNEL_FLAGS to BASH_ENV
           command: |
               CONDA_CHANNEL_FLAGS=""
-              if [[ "${PYTHON_VERSION}" = *3.9* ]]; then
-                echo "export CONDA_CHANNEL_FLAGS=-c=conda-forge" >> ${BASH_ENV}
-              fi
+              # formerly used to add conda-forge flags for Python 3.9, reserving the mechanism for future python upgrades
 
 binary_common: &binary_common
   parameters:
@@ -71,11 +69,23 @@ binary_common: &binary_common
     python_version:
       description: "Python version to build against (e.g., 3.8)"
       type: string
+    cuda_version:
+      description: "CUDA version to build against (e.g., cpu, cu101)"
+      type: string
+      default: "cpu"
+    wheel_docker_image:
+      description: "Wheel only: what docker image to use"
+      type: string
+      default: "pytorch/manylinux-cuda102"
+    conda_docker_image:
+      description: "Conda only: what docker image to use"
+      type: string
+      default: "pytorch/conda-builder:cuda102"
   environment: &environment
     PYTHON_VERSION: << parameters.python_version >>
     BUILD_VERSION: << parameters.build_version >>
     PYTORCH_VERSION: << parameters.pytorch_version >>
-    CU_VERSION: cpu
+    CU_VERSION: << parameters.cuda_version >>
 
 smoke_test_common: &smoke_test_common
   <<: *binary_common
@@ -127,7 +137,7 @@ jobs:
   binary_linux_wheel:
     <<: *binary_common
     docker:
-      - image: "pytorch/manylinux-cuda102"
+      - image: << parameters.wheel_docker_image >>
     resource_class: 2xlarge+
     steps:
       - checkout
@@ -144,7 +154,7 @@ jobs:
   binary_linux_conda:
     <<: *binary_common
     docker:
-      - image: "pytorch/conda-cuda"
+      - image: "<< parameters.conda_docker_image >>"
     resource_class: 2xlarge+
     steps:
       - checkout
@@ -162,7 +172,7 @@ jobs:
   binary_macos_wheel:
     <<: *binary_common
     macos:
-      xcode: "9.4.1"
+      xcode: "12.0"
     steps:
       - checkout
       - install_build_tools_macos
@@ -188,7 +198,7 @@ jobs:
   binary_macos_conda:
     <<: *binary_common
     macos:
-      xcode: "9.4.1"
+      xcode: "12.0"
     steps:
       - checkout
       - install_build_tools_macos
@@ -424,12 +434,10 @@ jobs:
       - run:
           name: Run tests
           command: .circleci/unittest/linux/scripts/run_test.sh
-      - run:
-          name: Post process
-          command: .circleci/unittest/linux/scripts/post_process.sh
       - store_test_results:
           path: test-results
-
+      - store_artifacts:
+          path: test/htmlcov
   unittest_linux_gpu:
     <<: *binary_common
     machine:
@@ -437,7 +445,7 @@ jobs:
     resource_class: gpu.small
     environment:
       <<: *environment
-      image_name: pytorch/torchaudio_unittest_base:manylinux-cuda10.1-cudnn7-20210121
+      image_name: pytorch/torchaudio_unittest_base:manylinux-cuda10.2-cudnn8-20210623
     steps:
       - checkout
       - attach_workspace:
@@ -455,12 +463,11 @@ jobs:
           command: docker run -t --gpus all -e UPLOAD_CHANNEL -e CONDA_CHANNEL_FLAGS -v $PWD:$PWD -w $PWD "${image_name}" .circleci/unittest/linux/scripts/install.sh
       - run:
           name: Run tests
-          command: docker run -t --gpus all -v $PWD:$PWD -w $PWD "${image_name}" .circleci/unittest/linux/scripts/run_test.sh
-      - run:
-          name: Post Process
-          command: docker run -t --gpus all -v $PWD:$PWD -w $PWD "${image_name}" .circleci/unittest/linux/scripts/post_process.sh
+          command: docker run -t --gpus all -v $PWD:$PWD -w $PWD -e "TORCHAUDIO_TEST_FORCE_CUDA=1" "${image_name}" .circleci/unittest/linux/scripts/run_test.sh
       - store_test_results:
           path: test-results
+      - store_artifacts:
+          path: test/htmlcov
 
   unittest_windows_cpu:
     <<: *binary_common
@@ -479,11 +486,10 @@ jobs:
       - run:
           name: Run tests
           command: .circleci/unittest/windows/scripts/run_test.sh
-      - run:
-          name: Post process
-          command: .circleci/unittest/windows/scripts/post_process.sh
       - store_test_results:
           path: test-results
+      - store_artifacts:
+          path: test/htmlcov
 
   unittest_windows_gpu:
     <<: *binary_common
@@ -491,7 +497,7 @@ jobs:
       name: windows-gpu
     environment:
       <<: *environment
-      CUDA_VERSION: "10.1"
+      CUDA_VERSION: "10.2"
     steps:
       - checkout
       - designate_upload_channel
@@ -505,16 +511,15 @@ jobs:
       - run:
           name: Run tests
           command: .circleci/unittest/windows/scripts/run_test.sh
-      - run:
-          name: Post process
-          command: .circleci/unittest/windows/scripts/post_process.sh
       - store_test_results:
           path: test-results
+      - store_artifacts:
+          path: test/htmlcov
 
   unittest_macos_cpu:
     <<: *binary_common
     macos:
-      xcode: "9.4.1"
+      xcode: "12.0"
     resource_class: large
     steps:
       - checkout
@@ -532,11 +537,10 @@ jobs:
       - run:
           name: Run tests
           command: .circleci/unittest/linux/scripts/run_test.sh
-      - run:
-          name: Post process
-          command: .circleci/unittest/linux/scripts/post_process.sh
       - store_test_results:
           path: test-results
+      - store_artifacts:
+          path: test/htmlcov
 
   stylecheck:
     <<: *binary_common
@@ -603,7 +607,7 @@ jobs:
             # https://circleci.com/docs/2.0/configuration-reference/#checkout
             set -ex
             tag=${CIRCLE_TAG:1:5}
-            target=${tag:-master}
+            target=${tag:-main}
             ~/workspace/.circleci/build_docs/commit_docs.sh ~/workspace $target
 
   docstring_parameters_sync:
@@ -640,6 +644,6 @@ workflows:
           filters:
             branches:
               only:
-                - master
+                - main
     jobs:
       - smoke_test_docker_image_build

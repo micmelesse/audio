@@ -1,10 +1,9 @@
 import math
+import warnings
 from typing import Optional
 
 import torch
 from torch import Tensor
-
-import torchaudio._internal.fft
 
 
 def _dB2Linear(x: float) -> float:
@@ -79,9 +78,9 @@ def allpass_biquad(
     Returns:
         Tensor: Waveform of dimension of `(..., time)`
 
-    References:
-        http://sox.sourceforge.net/sox.html
-        https://www.w3.org/2011/audio/audio-eq-cookbook.html#APF
+    Reference:
+        - http://sox.sourceforge.net/sox.html
+        - https://www.w3.org/2011/audio/audio-eq-cookbook.html#APF
     """
     dtype = waveform.dtype
     device = waveform.device
@@ -122,9 +121,9 @@ def band_biquad(
     Returns:
         Tensor: Waveform of dimension of `(..., time)`
 
-    References:
-        http://sox.sourceforge.net/sox.html
-        https://www.w3.org/2011/audio/audio-eq-cookbook.html#APF
+    Reference:
+        - http://sox.sourceforge.net/sox.html
+        - https://www.w3.org/2011/audio/audio-eq-cookbook.html#APF
     """
     dtype = waveform.dtype
     device = waveform.device
@@ -170,9 +169,9 @@ def bandpass_biquad(
     Returns:
         Tensor: Waveform of dimension of `(..., time)`
 
-    References:
-        http://sox.sourceforge.net/sox.html
-        https://www.w3.org/2011/audio/audio-eq-cookbook.html#APF
+    Reference:
+        - http://sox.sourceforge.net/sox.html
+        - https://www.w3.org/2011/audio/audio-eq-cookbook.html#APF
     """
     dtype = waveform.dtype
     device = waveform.device
@@ -206,9 +205,9 @@ def bandreject_biquad(
     Returns:
         Tensor: Waveform of dimension of `(..., time)`
 
-    References:
-        http://sox.sourceforge.net/sox.html
-        https://www.w3.org/2011/audio/audio-eq-cookbook.html#APF
+    Reference:
+        - http://sox.sourceforge.net/sox.html
+        - https://www.w3.org/2011/audio/audio-eq-cookbook.html#APF
     """
     dtype = waveform.dtype
     device = waveform.device
@@ -246,9 +245,9 @@ def bass_biquad(
     Returns:
         Tensor: Waveform of dimension of `(..., time)`
 
-    References:
-        http://sox.sourceforge.net/sox.html
-        https://www.w3.org/2011/audio/audio-eq-cookbook.html#APF
+    Reference:
+        - http://sox.sourceforge.net/sox.html
+        - https://www.w3.org/2011/audio/audio-eq-cookbook.html#APF
     """
     dtype = waveform.dtype
     device = waveform.device
@@ -324,8 +323,8 @@ def contrast(waveform: Tensor, enhancement_amount: float = 75.0) -> Tensor:
     Returns:
         Tensor: Waveform of dimension of `(..., time)`
 
-    References:
-        http://sox.sourceforge.net/sox.html
+    Reference:
+        - http://sox.sourceforge.net/sox.html
     """
 
     if not 0 <= enhancement_amount <= 100:
@@ -357,8 +356,8 @@ def dcshift(
     Returns:
         Tensor: Waveform of dimension of `(..., time)`
 
-    References:
-        http://sox.sourceforge.net/sox.html
+    Reference:
+        - http://sox.sourceforge.net/sox.html
     """
     output_waveform = waveform
     limiter_threshold = 0.0
@@ -404,9 +403,9 @@ def deemph_biquad(waveform: Tensor, sample_rate: int) -> Tensor:
     Returns:
         Tensor: Waveform of dimension of `(..., time)`
 
-    References:
-        http://sox.sourceforge.net/sox.html
-        https://www.w3.org/2011/audio/audio-eq-cookbook.html#APF
+    Reference:
+        - http://sox.sourceforge.net/sox.html
+        - https://www.w3.org/2011/audio/audio-eq-cookbook.html#APF
     """
 
     if sample_rate == 44100:
@@ -679,10 +678,12 @@ def flanger(
     Returns:
         Tensor: Waveform of dimension of `(..., channel, time)`
 
-    References:
-        http://sox.sourceforge.net/sox.html
+    Reference:
+        - http://sox.sourceforge.net/sox.html
 
-        Scott Lehman, Effects Explained,
+        - Scott Lehman, `Effects Explained`_,
+
+    .. _Effects Explained:
         https://web.archive.org/web/20051125072557/http://www.harmony-central.com/Effects/effects-explained.html
     """
 
@@ -854,13 +855,14 @@ def highpass_biquad(
 
 
 def _lfilter_core_generic_loop(input_signal_windows: Tensor, a_coeffs_flipped: Tensor, padded_output_waveform: Tensor):
-    n_order = a_coeffs_flipped.size(0)
-    for i_sample, o0 in enumerate(input_signal_windows.t()):
+    n_order = a_coeffs_flipped.size(1)
+    a_coeffs_flipped = a_coeffs_flipped.unsqueeze(2)
+    for i_sample, o0 in enumerate(input_signal_windows.permute(2, 0, 1)):
         windowed_output_signal = padded_output_waveform[
-            :, i_sample:i_sample + n_order
+            :, :, i_sample:i_sample + n_order
         ]
-        o0.addmv_(windowed_output_signal, a_coeffs_flipped, alpha=-1)
-        padded_output_waveform[:, i_sample + n_order - 1] = o0
+        o0 -= (windowed_output_signal.transpose(0, 1) @ a_coeffs_flipped)[..., 0].t()
+        padded_output_waveform[:, :, i_sample + n_order - 1] = o0
 
 
 try:
@@ -876,13 +878,13 @@ def _lfilter_core(
     b_coeffs: Tensor,
 ) -> Tensor:
 
-    assert a_coeffs.size(0) == b_coeffs.size(0)
-    assert len(waveform.size()) == 2
+    assert a_coeffs.size() == b_coeffs.size()
+    assert len(waveform.size()) == 3
     assert waveform.device == a_coeffs.device
     assert b_coeffs.device == a_coeffs.device
 
-    n_channel, n_sample = waveform.size()
-    n_order = a_coeffs.size(0)
+    n_batch, n_channel, n_sample = waveform.size()
+    n_order = a_coeffs.size(1)
     assert n_order > 0
 
     # Pad the input and create output
@@ -892,17 +894,18 @@ def _lfilter_core(
 
     # Set up the coefficients matrix
     # Flip coefficients' order
-    a_coeffs_flipped = a_coeffs.flip(0)
-    b_coeffs_flipped = b_coeffs.flip(0)
+    a_coeffs_flipped = a_coeffs.flip(1)
+    b_coeffs_flipped = b_coeffs.flip(1)
 
     # calculate windowed_input_signal in parallel using convolution
     input_signal_windows = torch.nn.functional.conv1d(
-        padded_waveform.unsqueeze(1),
-        b_coeffs_flipped.view(1, 1, -1)
-    ).squeeze(1)
+        padded_waveform,
+        b_coeffs_flipped.unsqueeze(1),
+        groups=n_channel
+    )
 
-    input_signal_windows.div_(a_coeffs[0])
-    a_coeffs_flipped.div_(a_coeffs[0])
+    input_signal_windows.div_(a_coeffs[:, :1])
+    a_coeffs_flipped.div_(a_coeffs[:, :1])
 
     if input_signal_windows.device == torch.device('cpu') and\
        a_coeffs_flipped.device == torch.device('cpu') and\
@@ -911,8 +914,9 @@ def _lfilter_core(
     else:
         _lfilter_core_generic_loop(input_signal_windows, a_coeffs_flipped, padded_output_waveform)
 
-    output = padded_output_waveform[:, n_order - 1:]
+    output = padded_output_waveform[:, :, n_order - 1:]
     return output
+
 
 try:
     _lfilter = torch.ops.torchaudio._lfilter
@@ -935,21 +939,32 @@ def lfilter(
 
     Args:
         waveform (Tensor): audio waveform of dimension of ``(..., time)``.  Must be normalized to -1 to 1.
-        a_coeffs (Tensor): denominator coefficients of difference equation of dimension of ``(n_order + 1)``.
+        a_coeffs (Tensor): denominator coefficients of difference equation of dimension of either
+                                1D with shape ``(num_order + 1)`` or 2D with shape ``(num_filters, num_order + 1)``.
                                 Lower delays coefficients are first, e.g. ``[a0, a1, a2, ...]``.
                                 Must be same size as b_coeffs (pad with 0's as necessary).
-        b_coeffs (Tensor): numerator coefficients of difference equation of dimension of ``(n_order + 1)``.
-                                 Lower delays coefficients are first, e.g. ``[b0, b1, b2, ...]``.
-                                 Must be same size as a_coeffs (pad with 0's as necessary).
+        b_coeffs (Tensor): numerator coefficients of difference equation of dimension of either
+                                1D with shape ``(num_order + 1)`` or 2D with shape ``(num_filters, num_order + 1)``.
+                                Lower delays coefficients are first, e.g. ``[b0, b1, b2, ...]``.
+                                Must be same size as a_coeffs (pad with 0's as necessary).
         clamp (bool, optional): If ``True``, clamp the output signal to be in the range [-1, 1] (Default: ``True``)
 
     Returns:
-        Tensor: Waveform with dimension of ``(..., time)``.
+        Tensor: Waveform with dimension of either ``(..., num_filters, time)`` if ``a_coeffs`` and ``b_coeffs``
+                are 2D Tensors, or ``(..., time)`` otherwise.
     """
+    assert a_coeffs.size() == b_coeffs.size()
+    assert a_coeffs.ndim <= 2
+
+    if a_coeffs.ndim > 1:
+        waveform = torch.stack([waveform] * a_coeffs.shape[0], -2)
+    else:
+        a_coeffs = a_coeffs.unsqueeze(0)
+        b_coeffs = b_coeffs.unsqueeze(0)
+
     # pack batch
     shape = waveform.size()
-    waveform = waveform.reshape(-1, shape[-1])
-
+    waveform = waveform.reshape(-1, a_coeffs.shape[0], shape[-1])
     output = _lfilter(waveform, a_coeffs, b_coeffs)
 
     if clamp:
@@ -1026,8 +1041,8 @@ def overdrive(waveform: Tensor, gain: float = 20, colour: float = 20) -> Tensor:
     Returns:
         Tensor: Waveform of dimension of `(..., time)`
 
-    References:
-        http://sox.sourceforge.net/sox.html
+    Reference:
+        - http://sox.sourceforge.net/sox.html
     """
     actual_shape = waveform.shape
     device, dtype = waveform.device, waveform.dtype
@@ -1095,9 +1110,11 @@ def phaser(
     Returns:
         Tensor: Waveform of dimension of `(..., time)`
 
-    References:
-        http://sox.sourceforge.net/sox.html
-        Scott Lehman, Effects Explained,
+    Reference:
+        - http://sox.sourceforge.net/sox.html
+        - Scott Lehman, `Effects Explained`_.
+
+    .. _Effects Explained:
         https://web.archive.org/web/20051125072557/http://www.harmony-central.com/Effects/effects-explained.html
     """
     actual_shape = waveform.shape
@@ -1165,9 +1182,9 @@ def riaa_biquad(waveform: Tensor, sample_rate: int) -> Tensor:
     Returns:
         Tensor: Waveform of dimension of `(..., time)`
 
-    References:
-        http://sox.sourceforge.net/sox.html
-        https://www.w3.org/2011/audio/audio-eq-cookbook.html#APF
+    Reference:
+        - http://sox.sourceforge.net/sox.html
+        - https://www.w3.org/2011/audio/audio-eq-cookbook.html#APF
     """
 
     if sample_rate == 44100:
@@ -1233,9 +1250,9 @@ def treble_biquad(
     Returns:
         Tensor: Waveform of dimension of `(..., time)`
 
-    References:
-        http://sox.sourceforge.net/sox.html
-        https://www.w3.org/2011/audio/audio-eq-cookbook.html#APF
+    Reference:
+        - http://sox.sourceforge.net/sox.html
+        - https://www.w3.org/2011/audio/audio-eq-cookbook.html#APF
     """
     dtype = waveform.dtype
     device = waveform.device
@@ -1296,7 +1313,7 @@ def _measure(
     dftBuf[measure_len_ws:dft_len_ws].zero_()
 
     # lsx_safe_rdft((int)p->dft_len_ws, 1, c->dftBuf);
-    _dftBuf = torchaudio._internal.fft.rfft(dftBuf)
+    _dftBuf = torch.fft.rfft(dftBuf)
 
     # memset(c->dftBuf, 0, p->spectrum_start * sizeof(*c->dftBuf));
     _dftBuf[:spectrum_start].zero_()
@@ -1333,7 +1350,7 @@ def _measure(
     _cepstrum_Buf[spectrum_end:dft_len_ws >> 1].zero_()
 
     # lsx_safe_rdft((int)p->dft_len_ws >> 1, 1, c->dftBuf);
-    _cepstrum_Buf = torchaudio._internal.fft.rfft(_cepstrum_Buf)
+    _cepstrum_Buf = torch.fft.rfft(_cepstrum_Buf)
 
     result: float = float(
         torch.sum(_cepstrum_Buf[cepstrum_start:cepstrum_end].abs().pow(2))
@@ -1374,7 +1391,10 @@ def vad(
     so in order to trim from the back, the reverse effect must also be used.
 
     Args:
-        waveform (Tensor): Tensor of audio of dimension `(..., time)`
+        waveform (Tensor): Tensor of audio of dimension `(channels, time)` or `(time)`
+            Tensor of shape `(channels, time)` is treated as a multi-channel recording
+            of the same event and the resulting output will be trimmed to the earliest
+            voice activity in any channel.
         sample_rate (int): Sample rate of audio signal.
         trigger_level (float, optional): The measurement level used to trigger activity detection.
             This may need to be cahnged depending on the noise level, signal level,
@@ -1416,9 +1436,18 @@ def vad(
     Returns:
         Tensor: Tensor of audio of dimension (..., time).
 
-    References:
-        http://sox.sourceforge.net/sox.html
+    Reference:
+        - http://sox.sourceforge.net/sox.html
     """
+
+    if waveform.ndim > 2:
+        warnings.warn(
+            "Expected input tensor dimension of 1 for single channel"
+            f" or 2 for multi-channel. Got {waveform.ndim} instead. "
+            "Batch semantics is not supported. "
+            "Please refer to https://github.com/pytorch/audio/issues/1348"
+            " and https://github.com/pytorch/audio/issues/1468."
+        )
 
     measure_duration: float = (
         2.0 / measure_freq if measure_duration is None else measure_duration

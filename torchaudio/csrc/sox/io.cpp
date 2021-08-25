@@ -19,9 +19,7 @@ std::tuple<int64_t, int64_t, int64_t, int64_t, std::string> get_info_file(
       /*encoding=*/nullptr,
       /*filetype=*/format.has_value() ? format.value().c_str() : nullptr));
 
-  if (static_cast<sox_format_t*>(sf) == nullptr) {
-    throw std::runtime_error("Error opening audio file");
-  }
+  validate_input_file(sf, path);
 
   return std::make_tuple(
       static_cast<int64_t>(sf->signal.rate),
@@ -123,7 +121,8 @@ void save_audio_file(
       /*overwrite_permitted=*/nullptr));
 
   if (static_cast<sox_format_t*>(sf) == nullptr) {
-    throw std::runtime_error("Error saving audio file: failed to open file.");
+    throw std::runtime_error(
+        "Error saving audio file: failed to open file " + path);
   }
 
   torchaudio::sox_effects_chain::SoxEffectsChain chain(
@@ -162,7 +161,10 @@ std::tuple<int64_t, int64_t, int64_t, int64_t, std::string> get_info_fileobj(
   //
   // See:
   // https://xiph.org/vorbis/doc/Vorbis_I_spec.html
-  auto capacity = 4096;
+  const int kDefaultCapacityInBytes = 4096;
+  auto capacity = (sox_get_globals()->bufsiz > kDefaultCapacityInBytes)
+      ? sox_get_globals()->bufsiz
+      : kDefaultCapacityInBytes;
   std::string buffer(capacity, '\0');
   auto* buf = const_cast<char*>(buffer.data());
   auto num_read = read_fileobj(&fileobj, capacity, buf);
@@ -177,7 +179,7 @@ std::tuple<int64_t, int64_t, int64_t, int64_t, std::string> get_info_fileobj(
       /*filetype=*/format.has_value() ? format.value().c_str() : nullptr));
 
   // In case of streamed data, length can be 0
-  validate_input_file(sf);
+  validate_input_memfile(sf);
 
   return std::make_tuple(
       static_cast<int64_t>(sf->signal.rate),

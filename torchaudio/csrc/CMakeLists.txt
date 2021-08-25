@@ -10,8 +10,29 @@ set(
   utils.cpp
   )
 
-if(BUILD_TRANSDUCER)
-  list(APPEND LIBTORCHAUDIO_SOURCES transducer.cpp)
+if(BUILD_RNNT)
+  set(
+    RNNT_SOURCES
+    rnnt/cpu/compute_alphas.cpp
+    rnnt/cpu/compute_betas.cpp
+    rnnt/cpu/compute.cpp
+    rnnt/compute_alphas.cpp
+    rnnt/compute_betas.cpp
+    rnnt/compute.cpp
+    rnnt/autograd.cpp
+  )
+
+  if (USE_CUDA)
+    set(
+      CUDA_RNNT_SOURCES
+      rnnt/gpu/compute_alphas.cu
+      rnnt/gpu/compute_betas.cu
+      rnnt/gpu/compute.cu
+    )
+    list(APPEND RNNT_SOURCES ${CUDA_RNNT_SOURCES})
+  endif()
+
+  list(APPEND LIBTORCHAUDIO_SOURCES ${RNNT_SOURCES})
 endif()
 
 if(BUILD_KALDI)
@@ -94,6 +115,10 @@ if (BUILD_TORCHAUDIO_PYTHON_EXTENSION)
 
   if (BUILD_KALDI)
     target_compile_definitions(_torchaudio PRIVATE INCLUDE_KALDI)
+  endif()
+
+  if (USE_CUDA)
+    target_compile_definitions(_torchaudio PRIVATE USE_CUDA)
   endif()
 
   target_include_directories(

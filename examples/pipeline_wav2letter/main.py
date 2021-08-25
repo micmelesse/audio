@@ -11,12 +11,12 @@ from torch.optim import SGD, Adadelta, Adam, AdamW
 from torch.optim.lr_scheduler import ExponentialLR, ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from torchaudio.datasets.utils import bg_iterator
+from torchaudio.functional import edit_distance
 from torchaudio.models.wav2letter import Wav2Letter
 
 from ctc_decoders import GreedyDecoder
 from datasets import collate_factory, split_process_librispeech
 from languagemodels import LanguageModel
-from metrics import levenshtein_distance
 from transforms import Normalize, UnsqueezeFirst
 from utils import MetricLogger, count_parameters, save_checkpoint
 
@@ -217,26 +217,30 @@ def compute_error_rates(outputs, targets, decoder, language_model, metric):
         target_print = target[i].ljust(print_length)[:print_length]
         logging.info("Target: %s    Output: %s", target_print, output_print)
 
-    cers = [levenshtein_distance(t, o) for t, o in zip(target, output)]
+    cers = [edit_distance(t, o) for t, o in zip(target, output)]
     cers = sum(cers)
     n = sum(len(t) for t in target)
-    metric["cer over target length"] = cers / n
-    metric["cumulative cer"] += cers
-    metric["total chars"] += n
-    metric["cumulative cer over target length"] = metric["cer"] / metric["total chars"]
+    metric["batch char error"] = cers
+    metric["batch char total"] = n
+    metric["batch char error rate"] = cers / n
+    metric["epoch char error"] += cers
+    metric["epoch char total"] += n
+    metric["epoch char error rate"] = metric["epoch char error"] / metric["epoch char total"]
 
     # Compute WER
 
     output = [o.split(language_model.char_space) for o in output]
     target = [t.split(language_model.char_space) for t in target]
 
-    wers = [levenshtein_distance(t, o) for t, o in zip(target, output)]
+    wers = [edit_distance(t, o) for t, o in zip(target, output)]
     wers = sum(wers)
     n = sum(len(t) for t in target)
-    metric["wer over target length"] = wers / n
-    metric["cumulative wer"] += wers
-    metric["total words"] += n
-    metric["cumulative wer over target length"] = metric["wer"] / metric["total words"]
+    metric["batch word error"] = wers
+    metric["batch word total"] = n
+    metric["batch word error rate"] = wers / n
+    metric["epoch word error"] += wers
+    metric["epoch word total"] += n
+    metric["epoch word error rate"] = metric["epoch word error"] / metric["epoch word total"]
 
 
 def train_one_epoch(

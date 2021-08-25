@@ -5,7 +5,6 @@ import torch
 from torch import Tensor
 
 import torchaudio
-import torchaudio._internal.fft
 
 __all__ = [
     'get_mel_banks',
@@ -18,7 +17,6 @@ __all__ = [
     'mfcc',
     'vtln_warp_freq',
     'vtln_warp_mel_freq',
-    'resample_waveform',
 ]
 
 # numeric_limits<float>::epsilon() 1.1920928955078125e-07
@@ -291,7 +289,7 @@ def spectrogram(waveform: Tensor,
         snip_edges, raw_energy, energy_floor, dither, remove_dc_offset, preemphasis_coefficient)
 
     # size (m, padded_window_size // 2 + 1, 2)
-    fft = torchaudio._internal.fft.rfft(strided_input)
+    fft = torch.fft.rfft(strided_input)
 
     # Convert the FFT into a power spectrum
     power_spectrum = torch.max(fft.abs().pow(2.), epsilon).log()  # size (m, padded_window_size // 2 + 1)
@@ -573,7 +571,7 @@ def fbank(waveform: Tensor,
         snip_edges, raw_energy, energy_floor, dither, remove_dc_offset, preemphasis_coefficient)
 
     # size (m, padded_window_size // 2 + 1)
-    spectrum = torchaudio._internal.fft.rfft(strided_input).abs()
+    spectrum = torch.fft.rfft(strided_input).abs()
     if use_power:
         spectrum = spectrum.pow(2.)
 
@@ -750,24 +748,3 @@ def mfcc(
 
     feature = _subtract_column_mean(feature, subtract_mean)
     return feature
-
-
-def resample_waveform(waveform: Tensor,
-                      orig_freq: float,
-                      new_freq: float,
-                      lowpass_filter_width: int = 6) -> Tensor:
-    r"""Resamples the waveform at the new frequency.
-
-    This is a wrapper around ``torchaudio.functional.resample``.
-
-    Args:
-        waveform (Tensor): The input signal of size (..., time)
-        orig_freq (float): The original frequency of the signal
-        new_freq (float): The desired frequency
-        lowpass_filter_width (int, optional): Controls the sharpness of the filter, more == sharper
-            but less efficient. We suggest around 4 to 10 for normal use. (Default: ``6``)
-
-    Returns:
-        Tensor: The waveform at the new frequency
-    """
-    return torchaudio.functional.resample(waveform, orig_freq, new_freq, lowpass_filter_width)

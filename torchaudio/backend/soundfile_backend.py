@@ -85,18 +85,20 @@ def _get_encoding(format: str, subtype: str):
 def info(filepath: str, format: Optional[str] = None) -> AudioMetaData:
     """Get signal information of an audio file.
 
+    Note:
+        ``filepath`` argument is intentionally annotated as ``str`` only, even though it accepts
+        ``pathlib.Path`` object as well. This is for the consistency with ``"sox_io"`` backend,
+        which has a restriction on type annotation due to TorchScript compiler compatiblity.
+
     Args:
         filepath (path-like object or file-like object):
             Source of audio data.
-            Note:
-                  * This argument is intentionally annotated as ``str`` only,
-                    for the consistency with "sox_io" backend, which has a restriction
-                    on type annotation due to TorchScript compiler compatiblity.
         format (str, optional):
             Not used. PySoundFile does not accept format hint.
 
     Returns:
         AudioMetaData: meta data of the given audio.
+
     """
     sinfo = soundfile.info(filepath)
     return AudioMetaData(
@@ -159,13 +161,14 @@ def load(
     For these formats, this function always returns ``float32`` Tensor with values normalized to
     ``[-1.0, 1.0]``.
 
+    Note:
+        ``filepath`` argument is intentionally annotated as ``str`` only, even though it accepts
+        ``pathlib.Path`` object as well. This is for the consistency with ``"sox_io"`` backend,
+        which has a restriction on type annotation due to TorchScript compiler compatiblity.
+
     Args:
         filepath (path-like object or file-like object):
             Source of audio data.
-            Note:
-                  * This argument is intentionally annotated as ``str`` only,
-                    for the consistency with "sox_io" backend, which has a restriction
-                    on type annotation due to TorchScript compiler compatiblity.
         frame_offset (int):
             Number of frames to skip before start reading data.
         num_frames (int):
@@ -280,7 +283,7 @@ def _get_subtype(
         if encoding:
             raise ValueError("flac does not support encoding.")
         if not bits_per_sample:
-            return "PCM_24"
+            return "PCM_16"
         if bits_per_sample > 24:
             raise ValueError("flac does not support bits_per_sample > 24.")
         return "PCM_S8" if bits_per_sample == 8 else f"PCM_{bits_per_sample}"
@@ -324,11 +327,13 @@ def save(
         * OGG/VORBIS
         * SPHERE
 
+    Note:
+        ``filepath`` argument is intentionally annotated as ``str`` only, even though it accepts
+        ``pathlib.Path`` object as well. This is for the consistency with ``"sox_io"`` backend,
+        which has a restriction on type annotation due to TorchScript compiler compatiblity.
+
     Args:
         filepath (str or pathlib.Path): Path to audio file.
-            This functionalso handles ``pathlib.Path`` objects, but is annotated as ``str``
-            for the consistency with "sox_io" backend, which has a restriction on type annotation
-            for TorchScript compiler compatiblity.
         src (torch.Tensor): Audio data to save. must be 2D tensor.
         sample_rate (int): sampling rate
         channels_first (bool): If ``True``, the given tensor is interpreted as ``[channel, time]``,
@@ -377,8 +382,8 @@ def save(
 
     ``"flac"``
         - 8-bit
-        - 16-bit
-        - 24-bit (default)
+        - 16-bit (default)
+        - 24-bit
 
     ``"ogg"``, ``"vorbis"``
         - Doesn't accept changing configuration.
@@ -411,6 +416,9 @@ def save(
 
     if bits_per_sample not in (None, 8, 16, 24, 32, 64):
         raise ValueError("Invalid bits_per_sample.")
+    if bits_per_sample == 24:
+        warnings.warn("Saving audio with 24 bits per sample might warp samples near -1. "
+                      "Using 16 bits per sample might be able to avoid this.")
     subtype = _get_subtype(src.dtype, ext, encoding, bits_per_sample)
 
     # sph is a extension used in TED-LIUM but soundfile does not recognize it as NIST format,
